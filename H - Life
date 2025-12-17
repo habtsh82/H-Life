@@ -1,0 +1,83 @@
+<script type="module">
+    // 1. FIREBASE IMPORTS
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { 
+        getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence 
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // 2. YOUR CONFIG (Replace with your actual Firebase project keys)
+ const firebaseConfig = {
+  apiKey: "AIzaSyBlN7lZqqpyST39tZBA_xRpBk5gETY63CQ",
+  authDomain: "job-tracker-c1599.firebaseapp.com",
+  projectId: "job-tracker-c1599",
+  storageBucket: "job-tracker-c1599.firebasestorage.app",
+  messagingSenderId: "10827059262",
+  appId: "1:10827059262:web:e054be64d36c2e1f06c16f"
+};
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const USER_DOC_ID = "hab_global_state"; // Unique ID for your data
+    const docRef = doc(db, "users", USER_DOC_ID);
+
+    // 3. ENABLE OFFLINE PERSISTENCE (The "Offline Magic")
+    enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code == 'failed-precondition') console.log("Persistence failed: Multiple tabs open");
+        else if (err.code == 'unimplemented-state') console.log("Persistence not supported");
+    });
+
+    // --- APPLICATION STATE ---
+    // This will hold your data. We initialize with defaults.
+    let state = {
+        tasks: [],
+        challenge: {}, 
+        customSchedule: {},
+        tradingNotes: "",
+        tradeLog: []
+    };
+
+    // 4. CLOUD SYNC: SAVE DATA
+    // Replaces your old localStorage saveData function
+    window.saveData = async () => {
+        try {
+            await setDoc(docRef, state);
+            updateSyncStatus("● Synced");
+        } catch (e) {
+            console.error("Error saving to cloud: ", e);
+            updateSyncStatus("○ Offline (Saved Locally)");
+        }
+    };
+
+    function updateSyncStatus(msg) {
+        const el = document.getElementById('sync-status');
+        if (el) el.innerText = msg;
+    }
+
+    // 5. CLOUD SYNC: LOAD DATA (Real-time)
+    // This listens for changes from the cloud OR local cache
+    onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            state = docSnap.data();
+            // Re-render the current view whenever data updates
+            refreshCurrentView();
+        } else {
+            console.log("No cloud data found. Initializing with defaults...");
+            // If new project, you can trigger your initial state setup here
+        }
+    });
+
+    // --- UI LOGIC ---
+    // (Keep all your renderDashboard, renderSchedule, etc., functions here)
+    // Just ensure they use the 'state' variable which is now synced to Firebase.
+
+    function refreshCurrentView() {
+        const activeNav = document.querySelector('.active-nav')?.id;
+        if (activeNav === 'nav-dashboard') renderDashboard();
+        else if (activeNav === 'nav-schedule') renderSchedule();
+        else if (activeNav === 'nav-tasks') renderTasks();
+        // ... add other views ...
+    }
+
+    // ... [Paste the rest of your existing JS functions here] ...
+</script>
