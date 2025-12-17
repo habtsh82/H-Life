@@ -1,11 +1,10 @@
 <script type="module">
-    // 1. FIREBASE IMPORTS
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { 
         getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence 
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 2. YOUR CONFIG (Replace with your actual Firebase project keys)
+    // REPLACE THIS WITH YOUR NEW FIREBASE PROJECT CONFIG
     const firebaseConfig = {
   apiKey: "AIzaSyDnedUr-RQs_iOKKP3LSvlV1hjXxdyfaOI",
   authDomain: "h-life-tracker.firebaseapp.com",
@@ -15,69 +14,42 @@
   appId: "1:757300363968:web:454e080f069f851c266325"
 };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const USER_DOC_ID = "hab_global_state"; // Unique ID for your data
-    const docRef = doc(db, "users", USER_DOC_ID);
+    const docRef = doc(db, "data", "hab_life_state");
 
-    // 3. ENABLE OFFLINE PERSISTENCE (The "Offline Magic")
-    enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code == 'failed-precondition') console.log("Persistence failed: Multiple tabs open");
-        else if (err.code == 'unimplemented-state') console.log("Persistence not supported");
-    });
+    // Enable Offline Support for the database
+    enableIndexedDbPersistence(db).catch(err => console.log("Offline mode active"));
 
-    // --- APPLICATION STATE ---
-    // This will hold your data. We initialize with defaults.
-    let state = {
-        tasks: [],
-        challenge: {}, 
-        customSchedule: {},
-        tradingNotes: "",
-        tradeLog: []
-    };
+    // Register Service Worker for offline loading
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
 
-    // 4. CLOUD SYNC: SAVE DATA
-    // Replaces your old localStorage saveData function
+    // CLOUD SAVE FUNCTION
     window.saveData = async () => {
         try {
-            await setDoc(docRef, state);
-            updateSyncStatus("● Synced");
+            // We save the global 'state' object used in your H-Life app
+            await setDoc(docRef, state); 
+            console.log("Synced to Cloud");
         } catch (e) {
-            console.error("Error saving to cloud: ", e);
-            updateSyncStatus("○ Offline (Saved Locally)");
+            console.log("Saved to Local Phone Storage");
         }
     };
 
-    function updateSyncStatus(msg) {
-        const el = document.getElementById('sync-status');
-        if (el) el.innerText = msg;
-    }
-
-    // 5. CLOUD SYNC: LOAD DATA (Real-time)
-    // This listens for changes from the cloud OR local cache
+    // CLOUD LOAD & AUTO-REFRESH
     onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
-            state = docSnap.data();
-            // Re-render the current view whenever data updates
-            refreshCurrentView();
-        } else {
-            console.log("No cloud data found. Initializing with defaults...");
-            // If new project, you can trigger your initial state setup here
+            const cloudData = docSnap.data();
+            // Merge cloud data into our local state
+            Object.assign(state, cloudData);
+            
+            // Re-render the dashboard to show changes immediately
+            if (typeof renderDashboard === "function") renderDashboard();
         }
     });
 
-    // --- UI LOGIC ---
-    // (Keep all your renderDashboard, renderSchedule, etc., functions here)
-    // Just ensure they use the 'state' variable which is now synced to Firebase.
-
-    function refreshCurrentView() {
-        const activeNav = document.querySelector('.active-nav')?.id;
-        if (activeNav === 'nav-dashboard') renderDashboard();
-        else if (activeNav === 'nav-schedule') renderSchedule();
-        else if (activeNav === 'nav-tasks') renderTasks();
-        // ... add other views ...
-    }
-
-    // ... [Paste the rest of your existing JS functions here] ...
+    // --- YOUR ORIGINAL UI FUNCTIONS ---
+    // Make sure your existing logic (renderDashboard, addTask, etc.) 
+    // is pasted below this line or stays in the script.
 </script>
